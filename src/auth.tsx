@@ -74,14 +74,7 @@ function saveEmployees(list: DemoEmployee[]) {
 }
 
 const DEFAULT_EMPLOYEES: DemoEmployee[] = [
-  { id: 'emp-001', full_name: 'Arjun Sharma',  email: 'arjun@naboflow.com',  role: 'admin',     outlet: 'Main Branch',  pin: '1234', active: true },
-  { id: 'emp-002', full_name: 'Priya Mehta',   email: 'priya@naboflow.com',  role: 'manager',   outlet: 'Main Branch',  pin: '2345', active: true },
-  { id: 'emp-003', full_name: 'Rahul Gupta',   email: 'rahul@naboflow.com',  role: 'cashier',   outlet: 'Main Branch',  pin: '3456', active: true },
-  { id: 'emp-004', full_name: 'Sneha Patel',   email: 'sneha@naboflow.com',  role: 'server',    outlet: 'Main Branch',  pin: '4567', active: true },
-  { id: 'emp-005', full_name: 'Vikram Nair',   email: 'vikram@naboflow.com', role: 'inventory', outlet: 'Main Branch',  pin: '5678', active: true },
-  { id: 'emp-006', full_name: 'Anjali Singh',  email: 'anjali@naboflow.com', role: 'manager',   outlet: 'Koramangala',  pin: '6789', active: true },
-  { id: 'emp-007', full_name: 'Ravi Kumar',    email: 'ravi@naboflow.com',   role: 'cashier',   outlet: 'Koramangala',  pin: '7890', active: true },
-  { id: 'emp-008', full_name: 'Deepa Rao',     email: 'deepa@naboflow.com',  role: 'server',    outlet: 'Koramangala',  pin: '8901', active: true },
+  { id: 'emp-001', full_name: 'Super Admin', email: 'admin@naboflow.com', role: 'admin', outlet: 'Main Branch', pin: '1234', active: true },
 ];
 
 // Initialise employee list: prefer sessionStorage snapshot so additions survive re-renders.

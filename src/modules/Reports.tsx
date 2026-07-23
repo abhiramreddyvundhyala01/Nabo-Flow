@@ -8,7 +8,7 @@ import {
   Smartphone, ChevronDown, ChevronUp, Trash2, CheckCircle2, Calendar,
   Users, ShoppingBag, ArrowUpRight, ArrowDownRight, RefreshCw, Eye, Check,
 } from 'lucide-react';
-import { reportLibrary, staff as initialStaff, vendors, customers, referrals } from '../data';
+import { reportLibrary, staff as initialStaff, vendors, customers, referrals, IS_DEPLOYED_PROD } from '../data';
 import { inr, pct } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, ProgressBar } from '../ui';
 
@@ -22,7 +22,7 @@ type CompletedOrder = {
   paymentMode: string; completedAt: string;
 };
 
-const DEFAULT_SETTLED_BILLS: CompletedOrder[] = [
+const DEFAULT_SETTLED_BILLS: CompletedOrder[] = IS_DEPLOYED_PROD ? [] : [
   {
     id: 'ord-101', orderId: 'ORD-20260723-001', orderType: 'dine-in', tableNo: 'T6',
     lines: [

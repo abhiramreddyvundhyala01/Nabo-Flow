@@ -4,6 +4,12 @@ import type {
   PurchaseOrder, Customer, Referral, OnlineOrder, Staff, ReportItem,
 } from './types';
 
+export const IS_DEPLOYED_PROD = typeof window !== 'undefined' && (
+  window.location.hostname.includes('vercel.app') ||
+  window.location.hostname.includes('amplifyapp.com') ||
+  process.env.NEXT_PUBLIC_APP_ENV === 'production'
+);
+
 export const categories: Category[] = [
   { id: 'all', name: 'All', icon: 'Grid' },
   { id: 'fav', name: 'Favorites', icon: 'Star' },
@@ -130,7 +136,7 @@ export const tableOrders: TableOrder[] = [
   },
 ];
 
-export const rawMaterials: RawMaterial[] = [
+export const rawMaterials: RawMaterial[] = IS_DEPLOYED_PROD ? [] : [
   { id: 'r1', name: 'Basmati Rice', uom: 'kg', category: 'Grains', stock: 42, reorder: 20, unitCost: 85 },
   { id: 'r2', name: 'Chicken (boneless)', uom: 'kg', category: 'Meat', stock: 8, reorder: 15, unitCost: 240 },
   { id: 'r3', name: 'Paneer', uom: 'kg', category: 'Dairy', stock: 6, reorder: 5, unitCost: 280 },
@@ -174,7 +180,7 @@ export const recipes: Recipe[] = [
   },
 ];
 
-export const vendors: Vendor[] = [
+export const vendors: Vendor[] = IS_DEPLOYED_PROD ? [] : [
   { id: 'v1', name: 'Sai Fresh Farm', contact: 'Ramesh', phone: '+91 98765 43210', category: 'Vegetables', rating: 4.6, outstanding: 12400, items: 18 },
   { id: 'v2', name: 'Annapurna Rice Mills', contact: 'Suresh', phone: '+91 98220 11223', category: 'Grains', rating: 4.8, outstanding: 0, items: 6 },
   { id: 'v3', name: 'Fresh Chicken Co.', contact: 'Imran', phone: '+91 99300 44556', category: 'Meat', rating: 4.3, outstanding: 8600, items: 4 },
@@ -182,7 +188,7 @@ export const vendors: Vendor[] = [
   { id: 'v5', name: 'Spice Garden', contact: 'Mohan', phone: '+91 90909 80808', category: 'Spices', rating: 4.5, outstanding: 3200, items: 24 },
 ];
 
-export const purchaseOrders: PurchaseOrder[] = [
+export const purchaseOrders: PurchaseOrder[] = IS_DEPLOYED_PROD ? [] : [
   { id: 'PO-ORD-20260714-001', vendor: 'Sai Fresh Farm', date: '2026-07-14', items: 8, amount: 4200, status: 'sent', channel: 'whatsapp' },
   { id: 'PO-ORD-20260714-002', vendor: 'Fresh Chicken Co.', date: '2026-07-14', items: 3, amount: 8600, status: 'partial', channel: 'whatsapp' },
   { id: 'PO-ORD-20260713-001', vendor: 'Annapurna Rice Mills', date: '2026-07-13', items: 2, amount: 6800, status: 'received', channel: 'whatsapp' },
@@ -220,7 +226,9 @@ export const onlineOrders: OnlineOrder[] = [
   { id: 'ZM-8840', source: 'zomato', customer: 'Zara Ali', items: 3, amount: 920, status: 'delivered', time: '1 hr ago', eta: 0 },
 ];
 
-export const staff: Staff[] = [
+export const staff: Staff[] = IS_DEPLOYED_PROD ? [
+  { id: 's1', name: 'Super Admin', role: 'Manager', shift: 'Full', sales: 0, upsellRate: 0, avgBill: 0, attendance: 100, status: 'active' }
+] : [
   { id: 's1', name: 'Sunita Rao', role: 'Cashier', shift: 'Morning', sales: 18400, upsellRate: 32, avgBill: 420, attendance: 96, status: 'active' },
   { id: 's2', name: 'Mohan Das', role: 'Captain', shift: 'Evening', sales: 24200, upsellRate: 41, avgBill: 580, attendance: 92, status: 'active' },
   { id: 's3', name: 'Fatima Sheikh', role: 'Cashier', shift: 'Evening', sales: 15800, upsellRate: 28, avgBill: 380, attendance: 98, status: 'break' },
