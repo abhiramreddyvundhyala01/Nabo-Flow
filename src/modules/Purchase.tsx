@@ -1,7 +1,7 @@
 'use client';
 
 // ===== Nabo Flow — Purchase & Vendor Management (Fully Functional) =====
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Truck, Send, FileCheck, AlertTriangle, Star, Phone,
   Plus, Search, MessageCircle, FileText, TrendingUp,
@@ -14,6 +14,7 @@ import { vendors as initialVendors, purchaseOrders as initialPOs, rawMaterials }
 import { inr, generatePurchaseOrderId } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, Avatar } from '../ui';
 import type { Vendor, PurchaseOrder } from '../types';
+import { isSupabaseConfigured, dbFetchPurchaseOrders, dbSavePurchaseOrder } from '../supabase';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Tab = 'vendors' | 'orders' | 'ledger';
@@ -130,8 +131,30 @@ export function Purchase() {
     showToast(`Vendor "${v.name}" removed`);
   };
 
+  // Fetch live POs from Supabase if configured
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchPurchaseOrders().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: LocalPO[] = res.map((p: any) => ({
+            id: p.id,
+            vendor: p.vendor,
+            date: p.date,
+            items: p.items_count || p.items || 1,
+            amount: Number(p.amount),
+            status: p.status,
+            channel: p.channel,
+            lines: [],
+          }));
+          setOrders(mapped);
+        }
+      });
+    }
+  }, []);
+
   const handleCreatePO = (po: LocalPO) => {
     setOrders(prev => [po, ...prev]);
+    dbSavePurchaseOrder(po);
     // Update vendor outstanding if PO is sent
     if (po.status === 'sent') {
       setVendors(prev => prev.map(v => v.name === po.vendor ? { ...v, outstanding: v.outstanding + po.amount } : v));

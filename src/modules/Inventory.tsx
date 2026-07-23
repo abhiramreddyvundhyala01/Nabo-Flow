@@ -12,6 +12,7 @@ import { rawMaterials as defaultMaterials } from '../data';
 import type { RawMaterial } from '../types';
 import { inr } from '../format';
 import { Card, Badge, Button, StatCard, ProgressBar, SectionHeader } from '../ui';
+import { isSupabaseConfigured, dbFetchRawMaterials, dbSaveRawMaterial } from '../supabase';
 
 // ─── sessionStorage helpers ────────────────────────────────────────────────────
 const SS_KEY = 'nabo_raw_materials';
@@ -59,6 +60,27 @@ export function Inventory() {
   const [materials, setMaterials] = useState<RawMaterial[]>(() => ssLoad());
   const [toast, setToast] = useState<string | null>(null);
 
+  // Fetch live materials from Supabase if configured
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchRawMaterials().then(res => {
+        if (res && Array.isArray(res)) {
+          const mapped: RawMaterial[] = res.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            uom: r.uom,
+            category: r.category,
+            stock: Number(r.stock),
+            reorder: Number(r.reorder_level || r.reorder || 5),
+            unitCost: Number(r.unit_cost || r.unitCost || 0),
+          }));
+          setMaterials(mapped);
+          ssSave(mapped);
+        }
+      });
+    }
+  }, []);
+
   // Persist to sessionStorage on every change
   useEffect(() => { ssSave(materials); }, [materials]);
 
@@ -79,11 +101,13 @@ export function Inventory() {
   // ─── CRUD ────────────────────────────────────────────────────────────────────
   const addMaterial = useCallback((m: RawMaterial) => {
     setMaterials(prev => [...prev, m]);
+    dbSaveRawMaterial(m);
     showToast(`"${m.name}" added to inventory`);
   }, [showToast]);
 
   const updateMaterial = useCallback((m: RawMaterial) => {
     setMaterials(prev => prev.map(r => r.id === m.id ? m : r));
+    dbSaveRawMaterial(m);
     showToast(`"${m.name}" updated`);
   }, [showToast]);
 
@@ -95,9 +119,12 @@ export function Inventory() {
 
   const adjustStock = useCallback((id: string, delta: number) => {
     const name = materials.find(r => r.id === id)?.name ?? 'Item';
-    setMaterials(prev => prev.map(r => r.id === id
-      ? { ...r, stock: Math.max(0, +(r.stock + delta).toFixed(2)) }
-      : r));
+    setMaterials(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, stock: Math.max(0, +(r.stock + delta).toFixed(2)) };
+      dbSaveRawMaterial(updated);
+      return updated;
+    }));
     showToast(`${name}: stock ${delta > 0 ? '+' : ''}${delta}`);
   }, [materials, showToast]);
 

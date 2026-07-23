@@ -1,7 +1,7 @@
 'use client';
 
 // ===== Nabo Flow — Reports & Analytics =====
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart3, TrendingUp, Search, X, FileSpreadsheet, Layers,
   Brain, AlertCircle, FileText, Download, Filter, Receipt, CreditCard, Banknote,
@@ -11,6 +11,7 @@ import {
 import { reportLibrary, staff as initialStaff, vendors, customers, referrals, IS_DEPLOYED_PROD } from '../data';
 import { inr, pct } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, ProgressBar } from '../ui';
+import { isSupabaseConfigured, dbFetchOrders } from '../supabase';
 
 type Tab = 'library' | 'insights' | 'settled-bills';
 type DateFilterMode = 'all' | 'this_month' | 'today' | 'yesterday' | 'custom';
@@ -182,8 +183,37 @@ export function Reports() {
   const [tab, setTab] = useState<Tab>('settled-bills');
   const [dateMode, setDateMode] = useState<DateFilterMode>('all');
   const [selectedDate, setSelectedDate] = useState<string>('2026-07-23');
+  const [settledBillsState, setSettledBillsState] = useState<CompletedOrder[]>(() => loadHistory());
 
-  const history = useMemo(() => loadHistory(), [tab]);
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchOrders().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: CompletedOrder[] = res.map((o: any) => ({
+            id: o.id,
+            orderId: o.id,
+            orderType: o.order_type || 'dine-in',
+            tableNo: o.table_no || undefined,
+            lines: (o.order_items || []).map((i: any) => ({
+              name: i.item_name || 'Item',
+              qty: i.quantity || 1,
+              price: Number(i.price || 0),
+              veg: true,
+            })),
+            subtotal: Number(o.subtotal || 0),
+            tax: Number(o.tax || 0),
+            discount: Number(o.discount || 0),
+            total: Number(o.total || 0),
+            paymentMode: o.payment_mode || 'Cash',
+            completedAt: new Date(o.created_at || Date.now()).toLocaleString('en-IN'),
+          }));
+          setSettledBillsState(mapped);
+        }
+      });
+    }
+  }, []);
+
+  const history = settledBillsState;
 
   // Today and yesterday strings
   const todayIso = '2026-07-23';

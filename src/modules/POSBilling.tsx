@@ -16,6 +16,7 @@ import { categories, tables as initialTables, tableOrders as initialTableOrders 
 import { inr, uid } from '../format';
 import { Badge } from '../ui';
 import { useMenu } from '../MenuContext';
+import { isSupabaseConfigured, dbFetchOrders, dbSaveOrder, subscribeToOrders } from '../supabase';
 
 // localStorage helpers
 const LS_TABLES    = 'nabo_pos_tables';
@@ -132,8 +133,69 @@ export function POSBilling() {
   const [orderHistory, setOrderHistory] = useState<CompletedOrder[]>(() =>
     lsGet<CompletedOrder[]>(LS_HISTORY, [])
   );
+
   const pushHistory = useCallback((record: CompletedOrder) => {
     setOrderHistory(prev => { const next = [record, ...prev].slice(0, 200); lsSet(LS_HISTORY, next); return next; });
+    dbSaveOrder(record);
+  }, []);
+
+  // Fetch live orders & subscribe to Realtime order changes from Supabase
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchOrders().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: CompletedOrder[] = res.map((o: any) => ({
+            id: o.id,
+            orderId: o.id,
+            orderType: o.order_type || 'dine-in',
+            tableNo: o.table_no || undefined,
+            lines: (o.order_items || []).map((i: any) => ({
+              name: i.item_name || 'Item',
+              qty: i.quantity || 1,
+              price: Number(i.price || 0),
+              veg: true,
+            })),
+            subtotal: Number(o.subtotal || 0),
+            tax: Number(o.tax || 0),
+            discount: Number(o.discount || 0),
+            total: Number(o.total || 0),
+            paymentMode: o.payment_mode || 'Cash',
+            completedAt: new Date(o.created_at || Date.now()).toLocaleString('en-IN'),
+          }));
+          setOrderHistory(mapped);
+        }
+      });
+
+      const sub = subscribeToOrders(() => {
+        dbFetchOrders().then(res => {
+          if (res && Array.isArray(res)) {
+            const mapped: CompletedOrder[] = res.map((o: any) => ({
+              id: o.id,
+              orderId: o.id,
+              orderType: o.order_type || 'dine-in',
+              tableNo: o.table_no || undefined,
+              lines: (o.order_items || []).map((i: any) => ({
+                name: i.item_name || 'Item',
+                qty: i.quantity || 1,
+                price: Number(i.price || 0),
+                veg: true,
+              })),
+              subtotal: Number(o.subtotal || 0),
+              tax: Number(o.tax || 0),
+              discount: Number(o.discount || 0),
+              total: Number(o.total || 0),
+              paymentMode: o.payment_mode || 'Cash',
+              completedAt: new Date(o.created_at || Date.now()).toLocaleString('en-IN'),
+            }));
+            setOrderHistory(mapped);
+          }
+        });
+      });
+
+      return () => {
+        if (sub) sub.unsubscribe();
+      };
+    }
   }, []);
 
   const [showPayment, setShowPayment] = useState(false);
