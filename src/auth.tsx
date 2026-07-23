@@ -3,6 +3,7 @@
 // ===== Nabo Flow — Auth + RBAC + Types (fully local, no Supabase) =====
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { ModuleKey } from './types';
+import { isSupabaseConfigured, supabase } from './supabase';
 
 // ─── Role & Profile types ─────────────────────────────────────────────────────
 export type Role = 'admin' | 'manager' | 'cashier' | 'server' | 'inventory';
@@ -73,7 +74,7 @@ function saveEmployees(list: DemoEmployee[]) {
   try { sessionStorage.setItem(EMPLOYEES_STORAGE_KEY, JSON.stringify(list)); } catch { /* ignore */ }
 }
 
-const DEFAULT_EMPLOYEES: DemoEmployee[] = [
+const DEFAULT_EMPLOYEES: DemoEmployee[] = isSupabaseConfigured ? [] : [
   { id: 'emp-001', full_name: 'Super Admin', email: 'admin@naboflow.com', role: 'admin', outlet: 'Main Branch', pin: '1234', active: true },
 ];
 
@@ -142,14 +143,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Return all active employees as picker options
   const fetchEmployees = useCallback(async () => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('active', true);
+      if (!error && Array.isArray(data)) {
+        const dbEmployees: EmployeeOption[] = data.map(p => ({
+          id: p.id,
+          full_name: p.full_name,
+          role: p.role,
+          outlet: p.outlet || 'Main Branch',
+        }));
+        return { employees: dbEmployees, error: null };
+      }
+    }
+
     const employees: EmployeeOption[] = DEMO_EMPLOYEES
       .filter(e => e.active)
       .map(({ id, full_name, role, outlet }) => ({ id, full_name, role, outlet }));
     return { employees, error: null };
   }, []);
 
-  // Validate PIN against the demo table
+  // Validate PIN against Supabase or demo table
   const pinLogin = useCallback(async (profileId: string, pin: string) => {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', profileId).maybeSingle();
+      if (!error && data) {
+        if (data.pin_hash && data.pin_hash !== pin) {
+          return { error: 'Incorrect PIN' };
+        }
+        const p: Profile = {
+          id: data.id,
+          email: data.email,
+          full_name: data.full_name,
+          role: data.role as Role,
+          outlet: data.outlet,
+          active: data.active,
+        };
+        saveProfile(p);
+        setProfile(p);
+        return { error: null };
+      }
+    }
+
     const emp = DEMO_EMPLOYEES.find(e => e.id === profileId);
     if (!emp) return { error: 'Employee not found' };
     if (!emp.active) return { error: 'Account is disabled' };
