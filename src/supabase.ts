@@ -79,6 +79,48 @@ export async function dbSaveOrder(order: any) {
   return data;
 }
 
+export async function dbFetchMenuItems() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('menu_items').select('*').order('name');
+  if (error) { console.error('Supabase fetch menu items error:', error); return null; }
+  return data;
+}
+
+export async function dbSaveMenuItem(item: any) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('menu_items').upsert({
+    id: item.id,
+    name: item.name,
+    category_id: item.category,
+    description: item.description,
+    price: item.price,
+    is_veg: item.veg ?? true,
+    available: item.available ?? true,
+    prep_time_mins: item.prepTime || 15,
+  }).select();
+  if (error) console.error('Supabase save menu item error:', error);
+  return data;
+}
+
+export async function dbFetchCategories() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('categories').select('*').order('sort_order');
+  if (error) { console.error('Supabase fetch categories error:', error); return null; }
+  return data;
+}
+
+export async function dbSaveCategory(cat: any) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('categories').upsert({
+    id: cat.id,
+    name: cat.name,
+    icon: cat.icon,
+    sort_order: cat.sort_order || 0,
+  }).select();
+  if (error) console.error('Supabase save category error:', error);
+  return data;
+}
+
 export async function dbFetchRawMaterials() {
   if (!supabase) return null;
   const { data, error } = await supabase.from('raw_materials').select('*').order('name');

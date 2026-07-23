@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { menuItems as defaultMenuItems } from './data';
 import type { MenuItem } from './types';
+import { isSupabaseConfigured, dbFetchMenuItems, dbSaveMenuItem } from './supabase';
 
 // ─── localStorage key (same key used in MenuManagement) ───────────────────────
 export const MENU_LS_KEY = 'nabo_menu_items';
@@ -44,6 +45,32 @@ const MenuContext = createContext<MenuContextValue | undefined>(undefined);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [menuItems, setMenuItemsState] = useState<MenuItem[]>(() => loadFromStorage());
+
+  // Fetch live menu items from Supabase if configured
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchMenuItems().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: MenuItem[] = res.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            price: Number(m.price),
+            category: m.category_id || 'starters',
+            shortCode: m.id,
+            veg: Boolean(m.is_veg),
+            available: Boolean(m.available),
+            popular: false,
+            prepTime: Number(m.prep_time_mins || 15),
+            spice: 'medium',
+            allergens: [],
+            description: m.description,
+          }));
+          setMenuItemsState(mapped);
+          saveToStorage(mapped);
+        }
+      });
+    }
+  }, []);
 
   // Persist to localStorage whenever items change
   useEffect(() => { saveToStorage(menuItems); }, [menuItems]);

@@ -132,7 +132,7 @@ function loadHistory(): CompletedOrder[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch { /* ignore */ }
-  return DEFAULT_SETTLED_BILLS;
+  return IS_DEPLOYED_PROD ? [] : DEFAULT_SETTLED_BILLS;
 }
 
 // Parse date string to ISO date YYYY-MM-DD
