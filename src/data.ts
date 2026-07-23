@@ -51,7 +51,22 @@ export const menuItems: MenuItem[] = [
   { id: 'm25', name: 'Gajar Halwa', price: 110, category: 'desserts', shortCode: 'GH01', veg: true, available: true, popular: false, prepTime: 3, spice: 'none', allergens: ['dairy'] },
 ];
 
-export const tables: TableInfo[] = [
+const CLEAN_PROD_TABLES: TableInfo[] = [
+  { id: 't1', label: 'T1', seats: 2, shape: 'round', status: 'vacant', section: 'Window' },
+  { id: 't2', label: 'T2', seats: 4, shape: 'square', status: 'vacant', section: 'Window' },
+  { id: 't3', label: 'T3', seats: 4, shape: 'square', status: 'vacant', section: 'Window' },
+  { id: 't4', label: 'T4', seats: 6, shape: 'rect', status: 'vacant', section: 'Window' },
+  { id: 't5', label: 'T5', seats: 2, shape: 'round', status: 'vacant', section: 'Center' },
+  { id: 't6', label: 'T6', seats: 4, shape: 'square', status: 'vacant', section: 'Center' },
+  { id: 't7', label: 'T7', seats: 4, shape: 'square', status: 'vacant', section: 'Center' },
+  { id: 't8', label: 'T8', seats: 8, shape: 'rect', status: 'vacant', section: 'Center' },
+  { id: 't9', label: 'T9', seats: 2, shape: 'round', status: 'vacant', section: 'Patio' },
+  { id: 't10', label: 'T10', seats: 4, shape: 'square', status: 'vacant', section: 'Patio' },
+  { id: 't11', label: 'T11', seats: 4, shape: 'square', status: 'vacant', section: 'Patio' },
+  { id: 't12', label: 'T12', seats: 6, shape: 'rect', status: 'vacant', section: 'Patio' },
+];
+
+export const tables: TableInfo[] = IS_DEPLOYED_PROD ? CLEAN_PROD_TABLES : [
   { id: 't1', label: 'T1', seats: 2, shape: 'round', status: 'vacant', section: 'Window' },
   { id: 't2', label: 'T2', seats: 4, shape: 'square', status: 'occupied', orderAmount: 840, guests: 3, section: 'Window' },
   { id: 't3', label: 'T3', seats: 4, shape: 'square', status: 'kot-sent', orderAmount: 1260, guests: 4, section: 'Window' },
@@ -66,7 +81,7 @@ export const tables: TableInfo[] = [
   { id: 't12', label: 'T12', seats: 6, shape: 'rect', status: 'bill-printed', orderAmount: 2100, guests: 5, section: 'Patio' },
 ];
 
-export const tableOrders: TableOrder[] = [
+export const tableOrders: TableOrder[] = IS_DEPLOYED_PROD ? [] : [
   {
     tableId: 't2', orderId: 'ORD-20260723-001', status: 'occupied', guests: 3, startedAt: '12:15 PM',
     lines: [

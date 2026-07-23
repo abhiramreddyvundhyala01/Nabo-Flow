@@ -32,23 +32,50 @@ export async function dbFetchOrders() {
 
 export async function dbSaveOrder(order: any) {
   if (!supabase) return null;
+
+  const rawType = (order.orderType || order.type || order.order_type || 'dine_in').toLowerCase().replace('-', '_');
+  const validTypes = ['dine_in', 'takeaway', 'delivery', 'online'];
+  const safeType = validTypes.includes(rawType) ? rawType : 'dine_in';
+
+  const rawPayMode = (order.paymentMode || order.payment_mode || 'cash').toLowerCase();
+  const validModes = ['cash', 'upi', 'card', 'due'];
+  const safePayMode = validModes.includes(rawPayMode) ? rawPayMode : 'cash';
+
+  const orderId = order.orderId || order.id || `ORD-${Date.now()}`;
+
   const { data, error } = await supabase.from('orders').upsert({
-    id: order.id,
-    table_no: order.tableNo || order.table_no,
-    customer_name: order.customerName || order.customer_name,
-    customer_phone: order.customerPhone || order.customer_phone,
-    order_type: order.type || order.order_type || 'dine_in',
-    status: order.status || 'pending',
-    payment_status: order.paymentStatus || order.payment_status || 'unpaid',
-    payment_mode: order.paymentMode || order.payment_mode || 'cash',
+    id: orderId,
+    table_no: order.tableNo || order.table_no || null,
+    customer_name: order.customerName || order.customer_name || 'Walk-in Customer',
+    customer_phone: order.customerPhone || order.customer_phone || null,
+    order_type: safeType,
+    status: 'completed',
+    payment_status: 'paid',
+    payment_mode: safePayMode,
     subtotal: order.subtotal || 0,
     tax: order.tax || 0,
     discount: order.discount || 0,
     total: order.total || 0,
-    server_name: order.serverName || order.server_name,
-    notes: order.notes,
+    server_name: order.serverName || order.server_name || null,
+    notes: order.notes || null,
   }).select();
-  if (error) console.error('Supabase save order error:', error);
+
+  if (error) {
+    console.error('Supabase save order error:', error);
+    return null;
+  }
+
+  // Insert line items into order_items table if present
+  if (Array.isArray(order.lines) && order.lines.length > 0) {
+    const lineItems = order.lines.map((l: any) => ({
+      order_id: orderId,
+      item_name: l.name || l.item_name || 'Item',
+      price: Number(l.price || 0),
+      quantity: Number(l.qty || l.quantity || 1),
+    }));
+    await supabase.from('order_items').insert(lineItems);
+  }
+
   return data;
 }
 
