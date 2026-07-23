@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════════════════════
--- Nabo Flow — Complete Supabase PostgreSQL Production Database Schema & Initial Seed
--- Paste this entire script into your Supabase Dashboard -> SQL Editor and click "Run"
+-- Nabo Flow — Idempotent Supabase PostgreSQL Production Database Schema & Initial Seed
+-- Safe to re-run multiple times in your Supabase Dashboard -> SQL Editor
 -- ════════════════════════════════════════════════════════════════════════════════
 
 -- 1. Profiles & Staff Management (RBAC)
@@ -154,11 +154,25 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 6. Enable Realtime Change Data Capture (CDC) for Kitchen & POS syncing
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.order_items;
+-- 6. Enable Realtime Change Data Capture (CDC) Safely
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
 
--- 7. Enable Row-Level Security (RLS) & Permissive Public Access
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'order_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.order_items;
+  END IF;
+END $$;
+
+-- 7. Enable Row-Level Security (RLS) & Permissive Public Access Safely
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
@@ -167,6 +181,16 @@ ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.raw_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if re-running script
+DROP POLICY IF EXISTS "Public Read Categories" ON public.categories;
+DROP POLICY IF EXISTS "Public Read Write Menu" ON public.menu_items;
+DROP POLICY IF EXISTS "Public Read Write Orders" ON public.orders;
+DROP POLICY IF EXISTS "Public Read Write Order Items" ON public.order_items;
+DROP POLICY IF EXISTS "Public Read Write Profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Public Read Write Raw Materials" ON public.raw_materials;
+DROP POLICY IF EXISTS "Public Read Write Purchase Orders" ON public.purchase_orders;
+DROP POLICY IF EXISTS "Public Read Write Attendance" ON public.attendance_records;
 
 -- Permissive RLS Policies for Anon / Authenticated Access
 CREATE POLICY "Public Read Categories" ON public.categories FOR ALL USING (true);
