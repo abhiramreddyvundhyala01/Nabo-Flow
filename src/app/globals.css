@@ -89,3 +89,13 @@ body {
 .animate-slide-up {
   animation: slide-up 0.22s ease-out;
 }
+
+/* Hide Next.js dev overlay indicator badge in bottom right corner */
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-toast-errors-parent],
+[data-nextjs-dialog-overlay],
+[class*="nextjs-toast"],
+[class*="nextjs-portal"] {
+  display: none !important;
+}
