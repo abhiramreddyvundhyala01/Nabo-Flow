@@ -150,6 +150,39 @@ export async function dbSaveRawMaterial(material: any) {
   return data;
 }
 
+export async function dbFetchVendors() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('vendors').select('*').order('name', { ascending: true });
+  if (error) { console.error('Supabase fetch vendors error:', error); return null; }
+  return data;
+}
+
+export async function dbSaveVendor(v: any) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('vendors').upsert({
+    id: v.id,
+    name: v.name,
+    category: v.category || 'General',
+    contact_person: v.contactPerson || v.contact_person || '',
+    phone: v.phone || '',
+    email: v.email || '',
+    gstin: v.gstin || '',
+    payment_terms: v.paymentTerms || v.payment_terms || 'Net 30',
+    outstanding: v.outstanding || 0,
+    rating: v.rating || 4.5,
+    items_supplied: v.itemsSupplied || v.items || 0,
+  }).select();
+  if (error) console.error('Supabase save vendor error:', error);
+  return data;
+}
+
+export async function dbDeleteVendor(id: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('vendors').delete().eq('id', id);
+  if (error) console.error('Supabase delete vendor error:', error);
+  return data;
+}
+
 export async function dbFetchPurchaseOrders() {
   if (!supabase) return null;
   const { data, error } = await supabase.from('purchase_orders').select('*').order('created_at', { ascending: false });
@@ -163,12 +196,19 @@ export async function dbSavePurchaseOrder(po: any) {
     id: po.id,
     vendor: po.vendor,
     date: po.date,
-    items_count: po.items || po.items_count || 1,
+    items_count: po.items || po.items_count || (Array.isArray(po.lines) ? po.lines.length : 1),
     amount: po.amount,
     status: po.status,
-    channel: po.channel,
+    channel: po.channel || 'manual',
   }).select();
   if (error) console.error('Supabase save PO error:', error);
+  return data;
+}
+
+export async function dbDeletePurchaseOrder(id: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('purchase_orders').delete().eq('id', id);
+  if (error) console.error('Supabase delete PO error:', error);
   return data;
 }
 

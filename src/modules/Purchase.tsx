@@ -14,7 +14,11 @@ import { vendors as initialVendors, purchaseOrders as initialPOs, rawMaterials }
 import { inr, generatePurchaseOrderId } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, Avatar } from '../ui';
 import type { Vendor, PurchaseOrder } from '../types';
-import { isSupabaseConfigured, dbFetchPurchaseOrders, dbSavePurchaseOrder } from '../supabase';
+import {
+  isSupabaseConfigured, dbFetchPurchaseOrders, dbSavePurchaseOrder,
+  dbFetchVendors, dbSaveVendor, dbDeleteVendor,
+} from '../supabase';
+import { addMaterialStock } from '../inventorySync';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Tab = 'vendors' | 'orders' | 'ledger';
@@ -39,7 +43,7 @@ interface Payment {
   vendorName: string;
   amount: number;
   date: string;
-  mode: 'cash' | 'bank_transfer' | 'cheque' | 'upi';
+  mode: 'cash' | 'bank_transfer' | 'cheque' | 'upi' | 'UPI' | 'Bank Transfer' | 'Cash';
   note: string;
 }
 
@@ -49,6 +53,7 @@ interface LocalPO extends PurchaseOrder {
 }
 
 interface LocalVendor extends Vendor {
+  contactPerson?: string;
   email?: string;
   address?: string;
   gst?: string;
@@ -66,14 +71,15 @@ const initialLocalVendors: LocalVendor[] = initialVendors.map(v => ({
 const initialLocalPOs: LocalPO[] = initialPOs.map(po => ({
   ...po,
   lines: [
-    { material: 'Sample Material', qty: po.items, unit: 'kg', unitCost: Math.round(po.amount / po.items) },
+    { material: 'Basmati Rice', qty: 50, unit: 'kg', unitCost: 85 },
+    { material: 'Cooking Oil', qty: 20, unit: 'L', unitCost: 140 },
   ],
 }));
 
 const ledgerPayments: Payment[] = [
-  { id: 'pay-001', vendorId: 'v1', vendorName: 'Sai Fresh Farm', amount: 5000, date: '2026-07-10', mode: 'upi', note: 'Partial payment' },
-  { id: 'pay-002', vendorId: 'v3', vendorName: 'Fresh Chicken Co.', amount: 8600, date: '2026-07-08', mode: 'bank_transfer', note: 'Full settlement' },
-  { id: 'pay-003', vendorId: 'v5', vendorName: 'Spice Garden', amount: 3200, date: '2026-07-07', mode: 'cash', note: '' },
+  { id: 'pay1', vendorId: 'v1', vendorName: 'FreshFarm Supplies', date: '2026-07-20', amount: 15000, mode: 'UPI', note: 'Partial payment' },
+  { id: 'pay2', vendorId: 'v2', vendorName: 'Royal Meat & Poultry', date: '2026-07-18', amount: 25000, mode: 'Bank Transfer', note: 'Full settlement' },
+  { id: 'pay3', vendorId: 'v3', vendorName: 'Metro Dairy Products', date: '2026-07-15', amount: 8000, mode: 'Cash', note: 'Advance' },
 ];
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -87,6 +93,21 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+const loadLocalVendors = (): LocalVendor[] => {
+  try {
+    const raw = localStorage.getItem('nabo_vendors');
+    if (raw) {
+      const parsed = JSON.parse(raw) as LocalVendor[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return initialLocalVendors;
+};
+
+const saveLocalVendors = (items: LocalVendor[]) => {
+  try { localStorage.setItem('nabo_vendors', JSON.stringify(items)); } catch { /* ignore */ }
+};
+
 const loadLocalPOs = (): LocalPO[] => {
   try {
     const raw = localStorage.getItem('nabo_purchase_orders');
@@ -98,10 +119,14 @@ const loadLocalPOs = (): LocalPO[] => {
   return initialLocalPOs;
 };
 
+const saveLocalPOs = (items: LocalPO[]) => {
+  try { localStorage.setItem('nabo_purchase_orders', JSON.stringify(items)); } catch { /* ignore */ }
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function Purchase() {
   const [tab, setTab] = useState<Tab>('vendors');
-  const [vendors, setVendors] = useState<LocalVendor[]>(initialLocalVendors);
+  const [vendors, setVendors] = useState<LocalVendor[]>(loadLocalVendors);
   const [orders, setOrders] = useState<LocalPO[]>(loadLocalPOs);
   const [payments, setPayments] = useState<Payment[]>(ledgerPayments);
   const [toast, setToast] = useState<string | null>(null);
@@ -129,6 +154,49 @@ export function Purchase() {
     return () => window.removeEventListener('storage', syncPOs);
   }, []);
 
+  // Fetch live Vendors & POs from Supabase if configured
+  useEffect(() => {
+    if (isSupabaseConfigured) {
+      dbFetchVendors().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: LocalVendor[] = res.map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            contact: v.contact_person || v.contactPerson || v.contact || v.name || '',
+            category: v.category || 'General',
+            contactPerson: v.contact_person || v.contactPerson || '',
+            phone: v.phone || '',
+            email: v.email || '',
+            gstin: v.gstin || '',
+            paymentTerms: v.payment_terms || v.paymentTerms || 'Net 30',
+            outstanding: Number(v.outstanding || 0),
+            rating: Number(v.rating || 4.5),
+            items: Number(v.items_supplied || v.items || 0),
+          }));
+          setVendors(mapped);
+          saveLocalVendors(mapped);
+        }
+      });
+
+      dbFetchPurchaseOrders().then(res => {
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapped: LocalPO[] = res.map((p: any) => ({
+            id: p.id,
+            vendor: p.vendor,
+            date: p.date,
+            items: p.items_count || p.items || 1,
+            amount: Number(p.amount),
+            status: p.status,
+            channel: p.channel || 'whatsapp',
+            lines: [],
+          }));
+          setOrders(mapped);
+          saveLocalPOs(mapped);
+        }
+      });
+    }
+  }, []);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
@@ -141,50 +209,53 @@ export function Purchase() {
     .reduce((s, o) => s + o.amount, 0);
 
   const handleAddVendor = (v: LocalVendor) => {
-    setVendors(prev => [...prev, { ...v, id: `v${Date.now()}`, outstanding: 0, items: 0, rating: 4.5 }]);
+    const newVendor: LocalVendor = { ...v, id: `v${Date.now()}`, outstanding: 0, items: 0, rating: 4.5 };
+    setVendors(prev => {
+      const next = [...prev, newVendor];
+      saveLocalVendors(next);
+      return next;
+    });
+    dbSaveVendor(newVendor);
     setShowAddVendor(false);
     showToast(`Vendor "${v.name}" added successfully`);
   };
 
   const handleEditVendor = (v: LocalVendor) => {
-    setVendors(prev => prev.map(x => x.id === v.id ? v : x));
+    setVendors(prev => {
+      const next = prev.map(x => x.id === v.id ? v : x);
+      saveLocalVendors(next);
+      return next;
+    });
+    dbSaveVendor(v);
     setEditVendor(null);
     showToast(`Vendor "${v.name}" updated`);
   };
 
   const handleDeleteVendor = (v: LocalVendor) => {
-    setVendors(prev => prev.filter(x => x.id !== v.id));
+    setVendors(prev => {
+      const next = prev.filter(x => x.id !== v.id);
+      saveLocalVendors(next);
+      return next;
+    });
+    dbDeleteVendor(v.id);
     setDeleteVendor(null);
     showToast(`Vendor "${v.name}" removed`);
   };
 
-  // Fetch live POs from Supabase if configured
-  useEffect(() => {
-    if (isSupabaseConfigured) {
-      dbFetchPurchaseOrders().then(res => {
-        if (res && Array.isArray(res) && res.length > 0) {
-          const mapped: LocalPO[] = res.map((p: any) => ({
-            id: p.id,
-            vendor: p.vendor,
-            date: p.date,
-            items: p.items_count || p.items || 1,
-            amount: Number(p.amount),
-            status: p.status,
-            channel: p.channel,
-            lines: [],
-          }));
-          setOrders(mapped);
-        }
-      });
-    }
-  }, []);
-
   const handleCreatePO = (po: LocalPO) => {
-    setOrders(prev => [po, ...prev]);
+    setOrders(prev => {
+      const next = [po, ...prev];
+      saveLocalPOs(next);
+      return next;
+    });
     dbSavePurchaseOrder(po);
     // Update vendor outstanding if PO is sent
     if (po.status === 'sent') {
-      setVendors(prev => prev.map(v => v.name === po.vendor ? { ...v, outstanding: v.outstanding + po.amount } : v));
+      setVendors(prev => {
+        const next = prev.map(v => v.name === po.vendor ? { ...v, outstanding: v.outstanding + po.amount } : v);
+        saveLocalVendors(next);
+        return next;
+      });
     }
     setNewPOVendor(null);
     showToast(po.status === 'sent' ? `PO ${po.id} sent via ${po.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}` : `PO ${po.id} saved as draft`);
@@ -193,10 +264,33 @@ export function Purchase() {
   const handleGRN = (po: LocalPO, lines: GRNLine[]) => {
     const allReceived = lines.every(l => l.received >= l.ordered);
     const newStatus: PurchaseOrder['status'] = allReceived ? 'received' : 'partial';
-    setOrders(prev => prev.map(o => o.id === po.id ? { ...o, status: newStatus, lines: o.lines.map((l, i) => ({ ...l, qty: lines[i]?.received ?? l.qty })) } : o));
+
+    // Replenish inventory stock for received materials
+    const receivedMaterials = lines.filter(l => l.received > 0).map(l => ({ name: l.material, qty: l.received }));
+    if (receivedMaterials.length > 0) {
+      addMaterialStock(receivedMaterials);
+    }
+
+    const updatedPO: LocalPO = {
+      ...po,
+      status: newStatus,
+      lines: po.lines.map((l, i) => ({ ...l, qty: lines[i]?.received ?? l.qty })),
+    };
+
+    setOrders(prev => {
+      const next = prev.map(o => o.id === po.id ? updatedPO : o);
+      saveLocalPOs(next);
+      return next;
+    });
+    dbSavePurchaseOrder(updatedPO);
+
     // Clear outstanding if fully received
     if (allReceived) {
-      setVendors(prev => prev.map(v => v.name === po.vendor ? { ...v, outstanding: Math.max(0, v.outstanding - po.amount) } : v));
+      setVendors(prev => {
+        const next = prev.map(v => v.name === po.vendor ? { ...v, outstanding: Math.max(0, v.outstanding - po.amount) } : v);
+        saveLocalVendors(next);
+        return next;
+      });
     }
     setGrnPO(null);
     showToast(`GRN recorded — PO ${po.id} marked as ${newStatus}`);

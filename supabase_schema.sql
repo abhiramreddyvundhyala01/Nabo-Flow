@@ -161,6 +161,30 @@ INSERT INTO public.raw_materials (id, name, uom, category, stock, reorder_level,
 ('r27', 'Nuts & Saffron', 'kg', 'Spices', 2, 1, 1400)
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, unit_cost = EXCLUDED.unit_cost, uom = EXCLUDED.uom;
 
+CREATE TABLE IF NOT EXISTS public.vendors (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'General',
+  contact_person TEXT,
+  phone TEXT NOT NULL,
+  email TEXT,
+  gstin TEXT,
+  payment_terms TEXT DEFAULT 'Net 30',
+  outstanding NUMERIC NOT NULL DEFAULT 0,
+  rating NUMERIC DEFAULT 4.5,
+  items_supplied INT DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Seed Initial Vendors (v1 - v5)
+INSERT INTO public.vendors (id, name, category, contact_person, phone, email, gstin, payment_terms, outstanding, rating, items_supplied) VALUES
+('v1', 'FreshFarm Supplies', 'Vegetables', 'Ramesh Kumar', '+91 98765 43210', 'freshfarm@gmail.com', '36AABCF123411ZX', 'Net 15', 18500, 4.8, 14),
+('v2', 'Royal Meat & Poultry', 'Meat', 'Mohd. Rafiq', '+91 98123 45678', 'royalmeat@gmail.com', '36AACCR567822ZY', 'Net 7', 34200, 4.6, 8),
+('v3', 'Metro Dairy Products', 'Dairy', 'Suresh Patel', '+91 97890 12345', 'metrodairy@gmail.com', '36AADDM901233ZZ', 'Net 30', 9800, 4.7, 6),
+('v4', 'Golden Grains Co.', 'Grains', 'Anand Verma', '+91 96543 21098', 'goldengrains@gmail.com', '36AAEEG345644ZW', 'Net 30', 0, 4.5, 10),
+('v5', 'Apex Oil & Spices', 'Oils & Spices', 'Vikram Singh', '+91 95432 10987', 'apexspices@gmail.com', '36AAFFA789055ZV', 'Net 15', 12400, 4.9, 12)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, phone = EXCLUDED.phone;
+
 CREATE TABLE IF NOT EXISTS public.purchase_orders (
   id TEXT PRIMARY KEY, -- PO-ORD-YYYYMMDD-XXX
   vendor TEXT NOT NULL,
@@ -413,8 +437,7 @@ ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.raw_materials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bom_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bom_components ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.boq_plans ENABLE ROW LEVEL SECURITY;
@@ -426,6 +449,7 @@ DROP POLICY IF EXISTS "Public Read Write Orders" ON public.orders;
 DROP POLICY IF EXISTS "Public Read Write Order Items" ON public.order_items;
 DROP POLICY IF EXISTS "Public Read Write Profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Public Read Write Raw Materials" ON public.raw_materials;
+DROP POLICY IF EXISTS "Public Read Write Vendors" ON public.vendors;
 DROP POLICY IF EXISTS "Public Read Write Purchase Orders" ON public.purchase_orders;
 DROP POLICY IF EXISTS "Public Read Write Attendance" ON public.attendance_records;
 DROP POLICY IF EXISTS "Public Read Write BOM Recipes" ON public.bom_recipes;
@@ -439,6 +463,7 @@ CREATE POLICY "Public Read Write Orders" ON public.orders FOR ALL USING (true);
 CREATE POLICY "Public Read Write Order Items" ON public.order_items FOR ALL USING (true);
 CREATE POLICY "Public Read Write Profiles" ON public.profiles FOR ALL USING (true);
 CREATE POLICY "Public Read Write Raw Materials" ON public.raw_materials FOR ALL USING (true);
+CREATE POLICY "Public Read Write Vendors" ON public.vendors FOR ALL USING (true);
 CREATE POLICY "Public Read Write Purchase Orders" ON public.purchase_orders FOR ALL USING (true);
 CREATE POLICY "Public Read Write Attendance" ON public.attendance_records FOR ALL USING (true);
 CREATE POLICY "Public Read Write BOM Recipes" ON public.bom_recipes FOR ALL USING (true);

@@ -148,3 +148,33 @@ export function restoreOrderStock(lines: OrderLineItem[]): RawMaterial[] {
   }
   return materials;
 }
+
+/**
+ * Automatically increases raw material stock when a Goods Received Note (GRN) / Purchase Order items are received.
+ */
+export function addMaterialStock(items: { name?: string; materialId?: string; qty: number }[]): RawMaterial[] {
+  if (!items || items.length === 0) return getStoredRawMaterials();
+
+  const materials = [...getStoredRawMaterials()];
+  let updated = false;
+
+  items.forEach(item => {
+    if (item.qty <= 0) return;
+    const idx = materials.findIndex(m =>
+      (item.materialId && m.id === item.materialId) ||
+      (item.name && m.name.toLowerCase().trim() === item.name.toLowerCase().trim())
+    );
+    if (idx !== -1) {
+      materials[idx] = {
+        ...materials[idx],
+        stock: Number((materials[idx].stock + item.qty).toFixed(4)),
+      };
+      updated = true;
+    }
+  });
+
+  if (updated) {
+    saveStoredRawMaterials(materials);
+  }
+  return materials;
+}
