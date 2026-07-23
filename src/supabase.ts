@@ -171,3 +171,81 @@ export async function dbSavePurchaseOrder(po: any) {
   if (error) console.error('Supabase save PO error:', error);
   return data;
 }
+
+// ─── BOM & BOQ Helpers ────────────────────────────────────────────────────────
+export async function dbFetchBOMRecipes() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('bom_recipes').select('*, bom_components(*)');
+  if (error) { console.error('Supabase fetch BOM error:', error); return null; }
+  return data;
+}
+
+export async function dbSaveBOMRecipe(bom: any) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('bom_recipes').upsert({
+    id: bom.id,
+    menu_item_id: bom.menuItemId,
+    menu_item_name: bom.menuItemName,
+    output_qty: bom.outputQty || 1,
+    output_uom: bom.outputUom || 'portion',
+    yield_pct: bom.yieldPct || 100,
+    wastage_pct: bom.wastagePct || 0,
+    total_cost: bom.totalCost || 0,
+    cost_per_serving: bom.costPerServing || 0,
+    suggested_price: bom.suggestedPrice || 0,
+    margin_pct: bom.marginPct || 0,
+    notes: bom.notes || null,
+  }).select();
+
+  if (error) { console.error('Supabase save BOM error:', error); return null; }
+
+  if (Array.isArray(bom.components)) {
+    // Refresh components
+    await supabase.from('bom_components').delete().eq('recipe_id', bom.id);
+    const comps = bom.components.map((c: any) => ({
+      recipe_id: bom.id,
+      material_id: c.materialId,
+      material_name: c.materialName,
+      qty: c.qty,
+      uom: c.uom,
+      unit_cost: c.unitCost,
+      total_cost: c.totalCost,
+    }));
+    if (comps.length > 0) {
+      await supabase.from('bom_components').insert(comps);
+    }
+  }
+
+  return data;
+}
+
+export async function dbDeleteBOMRecipe(id: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('bom_recipes').delete().eq('id', id);
+  if (error) console.error('Supabase delete BOM error:', error);
+  return data;
+}
+
+export async function dbFetchBOQPlans() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('boq_plans').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('Supabase fetch BOQ error:', error); return null; }
+  return data;
+}
+
+export async function dbSaveBOQPlan(plan: any) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('boq_plans').upsert({
+    id: plan.id,
+    title: plan.title,
+    date: plan.date,
+    event_or_type: plan.eventOrType || 'daily_prep',
+    items: plan.items || [],
+    requirements: plan.requirements || [],
+    total_estimated_cost: plan.totalEstimatedCost || 0,
+    status: plan.status || 'draft',
+    notes: plan.notes || null,
+  }).select();
+  if (error) console.error('Supabase save BOQ error:', error);
+  return data;
+}

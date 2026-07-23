@@ -87,11 +87,22 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+const loadLocalPOs = (): LocalPO[] => {
+  try {
+    const raw = localStorage.getItem('nabo_purchase_orders');
+    if (raw) {
+      const parsed = JSON.parse(raw) as LocalPO[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return initialLocalPOs;
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function Purchase() {
   const [tab, setTab] = useState<Tab>('vendors');
   const [vendors, setVendors] = useState<LocalVendor[]>(initialLocalVendors);
-  const [orders, setOrders] = useState<LocalPO[]>(initialLocalPOs);
+  const [orders, setOrders] = useState<LocalPO[]>(loadLocalPOs);
   const [payments, setPayments] = useState<Payment[]>(ledgerPayments);
   const [toast, setToast] = useState<string | null>(null);
   const [showAddVendor, setShowAddVendor] = useState(false);
@@ -101,6 +112,22 @@ export function Purchase() {
   const [grnPO, setGrnPO] = useState<LocalPO | null>(null);
   const [viewPO, setViewPO] = useState<LocalPO | null>(null);
   const [paymentVendor, setPaymentVendor] = useState<LocalVendor | null>(null);
+
+  // Sync purchase orders from localStorage (e.g. BOQ generated orders)
+  useEffect(() => {
+    const syncPOs = () => {
+      try {
+        const raw = localStorage.getItem('nabo_purchase_orders');
+        if (raw) {
+          const parsed = JSON.parse(raw) as LocalPO[];
+          if (Array.isArray(parsed) && parsed.length > 0) setOrders(parsed);
+        }
+      } catch { /* ignore */ }
+    };
+    syncPOs();
+    window.addEventListener('storage', syncPOs);
+    return () => window.removeEventListener('storage', syncPOs);
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);

@@ -99,6 +99,65 @@ export interface Recipe {
   cost: number;
 }
 
+export interface BOMComponent {
+  materialId: string;
+  materialName: string;
+  qty: number;
+  uom: string;
+  unitCost: number;
+  totalCost: number;
+}
+
+export interface BOMRecipe {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  category?: string;
+  outputQty: number; // e.g. 1 portion or 5 Liters base batch
+  outputUom: string;
+  components: BOMComponent[];
+  yieldPct: number; // e.g. 95%
+  wastagePct: number; // e.g. 5%
+  totalCost: number; // calculated total ingredient cost
+  costPerServing: number; // totalCost / outputQty
+  suggestedPrice?: number; // retail price advice based on target food cost %
+  marginPct?: number; // Gross margin %
+  notes?: string;
+  updatedAt?: string;
+}
+
+export interface BOQItem {
+  menuItemId: string;
+  menuItemName: string;
+  targetQty: number;
+  portionUom?: string;
+}
+
+export interface BOQMaterialRequirement {
+  materialId: string;
+  materialName: string;
+  uom: string;
+  category: string;
+  requiredQty: number;
+  currentStock: number;
+  shortageQty: number;
+  unitCost: number;
+  totalCost: number;
+}
+
+export interface BOQPlan {
+  id: string;
+  title: string;
+  date: string;
+  eventOrType: 'daily_prep' | 'banquet' | 'weekly_forecast' | 'custom';
+  items: BOQItem[];
+  requirements: BOQMaterialRequirement[];
+  totalEstimatedCost: number;
+  status: 'draft' | 'approved' | 'po_generated' | 'issued_to_kitchen';
+  notes?: string;
+  createdAt?: string;
+}
+
 export interface Vendor {
   id: string;
   name: string;

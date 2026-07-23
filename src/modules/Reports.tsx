@@ -6,14 +6,16 @@ import {
   BarChart3, TrendingUp, Search, X, FileSpreadsheet, Layers,
   Brain, AlertCircle, FileText, Download, Filter, Receipt, CreditCard, Banknote,
   Smartphone, ChevronDown, ChevronUp, Trash2, CheckCircle2, Calendar,
-  Users, ShoppingBag, ArrowUpRight, ArrowDownRight, RefreshCw, Eye, Check,
+  Users, ShoppingBag, ArrowUpRight, ArrowDownRight, RefreshCw, Eye, Check, BookOpen,
 } from 'lucide-react';
-import { reportLibrary, staff as initialStaff, vendors, customers, referrals, IS_DEPLOYED_PROD } from '../data';
+import { reportLibrary, staff as initialStaff, vendors, customers, referrals, bomRecipes as initialBOMRecipes, IS_DEPLOYED_PROD } from '../data';
 import { inr, pct } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, ProgressBar } from '../ui';
+import { useMenu } from '../MenuContext';
+import type { BOMRecipe } from '../types';
 import { isSupabaseConfigured, dbFetchOrders } from '../supabase';
 
-type Tab = 'library' | 'insights' | 'settled-bills';
+type Tab = 'settled-bills' | 'library' | 'bom-costing' | 'insights';
 type DateFilterMode = 'all' | 'this_month' | 'today' | 'yesterday' | 'custom';
 
 type CompletedOrder = {
@@ -340,6 +342,7 @@ export function Reports() {
         {([
           { key: 'settled-bills', label: 'Settled Bills' },
           { key: 'library',       label: 'Report Library' },
+          { key: 'bom-costing',   label: 'BOM Food Costing' },
           { key: 'insights',      label: 'AI Insights' },
         ] as { key: Tab; label: string }[]).map(t => (
           <button
@@ -365,7 +368,112 @@ export function Reports() {
 
       {tab === 'settled-bills' && <SettledBillsTab history={dateFilteredHistory} totalFullHistoryCount={history.length} />}
       {tab === 'library'       && <LibraryTab history={dateFilteredHistory} />}
+      {tab === 'bom-costing'   && <BOMCostingTab />}
       {tab === 'insights'      && <InsightsTab />}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BOM Food Costing & Profitability Matrix Tab
+// ════════════════════════════════════════════════════════════════════════════════
+function BOMCostingTab() {
+  const { menuItems } = useMenu();
+  const [boms] = useState<BOMRecipe[]>(() => {
+    try {
+      const raw = localStorage.getItem('nabo_bom_recipes');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
+    return initialBOMRecipes;
+  });
+
+  const reportRows = useMemo(() => {
+    return menuItems.map(item => {
+      const bom = boms.find(b => b.menuItemId === item.id);
+      const bomCost = bom ? bom.totalCost : 0;
+      const foodCostPct = bom ? Math.round((bomCost / item.price) * 100) : 0;
+      const marginPct = bom ? 100 - foodCostPct : 0;
+      const rating = !bom ? 'Unconfigured' : foodCostPct <= 30 ? 'Healthy' : foodCostPct <= 38 ? 'Caution' : 'High Cost';
+      return {
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        bomCost,
+        foodCostPct,
+        marginPct,
+        rating,
+        componentsCount: bom?.components.length || 0,
+      };
+    });
+  }, [menuItems, boms]);
+
+  const handleExportCSV = () => {
+    const csvData = reportRows.map(r => ({
+      'Item Name': r.name,
+      'Category': r.category,
+      'Retail Price (INR)': r.price,
+      'BOM Cost (INR)': r.bomCost,
+      'Food Cost %': `${r.foodCostPct}%`,
+      'Gross Margin %': `${r.marginPct}%`,
+      'Rating': r.rating,
+      'Ingredients Count': r.componentsCount,
+    }));
+    exportToCSV('BOM_Food_Costing_Report', csvData);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <SectionHeader
+          title="BOM Food Costing & Profitability Matrix"
+          subtitle="Theoretical food cost analysis calculated from active raw material recipes"
+          action={
+            <Button variant="secondary" size="sm" onClick={handleExportCSV}>
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+          }
+        />
+
+        <div className="border border-ink-200 rounded-xl overflow-hidden text-xs">
+          <table className="w-full text-left">
+            <thead className="bg-ink-50 border-b border-ink-200 font-semibold text-ink-600 uppercase text-2xs">
+              <tr>
+                <th className="p-3">Menu Item</th>
+                <th className="p-3">Category</th>
+                <th className="p-3 text-right">Retail Price</th>
+                <th className="p-3 text-right">BOM Cost</th>
+                <th className="p-3 text-right">Food Cost %</th>
+                <th className="p-3 text-right">Gross Margin %</th>
+                <th className="p-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {reportRows.map(row => (
+                <tr key={row.id} className="hover:bg-ink-50/50 transition-colors">
+                  <td className="p-3 font-semibold text-ink-900">{row.name}</td>
+                  <td className="p-3 text-ink-500 capitalize">{row.category}</td>
+                  <td className="p-3 text-right font-bold text-ink-900 tnum">{inr(row.price)}</td>
+                  <td className="p-3 text-right font-bold text-ink-800 tnum">{inr(row.bomCost)}</td>
+                  <td className="p-3 text-right font-bold tnum text-brand-600">{row.foodCostPct}%</td>
+                  <td className="p-3 text-right font-bold tnum text-success-600">{row.marginPct}%</td>
+                  <td className="p-3 text-center">
+                    <Badge
+                      tone={row.rating === 'Healthy' ? 'brand' : row.rating === 'Caution' ? 'warn' : row.rating === 'High Cost' ? 'danger' : 'neutral'}
+                      size="xs"
+                    >
+                      {row.rating}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
