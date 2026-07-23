@@ -15,6 +15,7 @@ import type { MenuItem } from '../types';
 import { inr } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader, Toggle } from '../ui';
 import { useMenu } from '../MenuContext';
+import { isSupabaseConfigured, dbSaveMenuItem, dbDeleteMenuItem } from '../supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'items' | 'combos' | 'scheduling' | 'aggregator';
@@ -97,20 +98,23 @@ export function MenuManagement() {
   const availableCount = useMemo(() => items.filter(m => m.available).length, [items]);
   const popularCount = useMemo(() => items.filter(m => m.popular).length, [items]);
 
-  // ─── CRUD handlers — all go through context (auto-persisted to localStorage) ──
+  // ─── CRUD handlers — sync with context and Supabase database ──
   const addItem = useCallback((item: MenuItem) => {
     setMenuItems([...items, item]);
+    dbSaveMenuItem(item);
     showToast(`"${item.name}" added to menu`);
   }, [items, setMenuItems, showToast]);
 
   const updateItem = useCallback((updated: MenuItem) => {
     setMenuItems(items.map(i => i.id === updated.id ? updated : i));
+    dbSaveMenuItem(updated);
     showToast(`"${updated.name}" updated`);
   }, [items, setMenuItems, showToast]);
 
   const deleteItem = useCallback((id: string) => {
     const name = items.find(i => i.id === id)?.name ?? 'Item';
     setMenuItems(items.filter(i => i.id !== id));
+    dbDeleteMenuItem(id);
     showToast(`"${name}" removed from menu`);
   }, [items, setMenuItems, showToast]);
 
@@ -122,11 +126,17 @@ export function MenuManagement() {
       shortCode: newCode(item.name + 'C'),
     };
     setMenuItems([...items, copy]);
+    dbSaveMenuItem(copy);
     showToast(`"${copy.name}" duplicated`);
   }, [items, setMenuItems, showToast]);
 
   const toggleAvailable = useCallback((id: string) => {
-    setMenuItems(items.map(i => i.id === id ? { ...i, available: !i.available } : i));
+    setMenuItems(items.map(i => {
+      if (i.id !== id) return i;
+      const updated = { ...i, available: !i.available };
+      dbSaveMenuItem(updated);
+      return updated;
+    }));
   }, [items, setMenuItems]);
 
   const togglePopular = useCallback((id: string) => {
@@ -141,11 +151,10 @@ export function MenuManagement() {
   return (
     <div className="space-y-5">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard label="Total Items"     value={String(items.length)}    sub={`${vegCount} veg · ${items.length - vegCount} non-veg`} icon={<BookOpen className="h-5 w-5" />}      tone="info" />
         <StatCard label="Available"       value={String(availableCount)}  sub={`${items.length - availableCount} 86'd`}               icon={<CheckCircle2 className="h-5 w-5" />}  tone="brand" />
         <StatCard label="Popular"         value={String(popularCount)}    sub="Pinned to POS grid"                                    icon={<Zap className="h-5 w-5" />}            tone="accent" />
-        <StatCard label="Aggregator Sync" value="2 / 2"                   sub="Zomato + Swiggy connected"                             icon={<Link2 className="h-5 w-5" />}          tone="info" />
       </div>
 
       {/* Tabs */}

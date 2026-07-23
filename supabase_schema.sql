@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════════════════
--- Nabo Flow — Complete Supabase PostgreSQL Production Database Schema
+-- Nabo Flow — Complete Supabase PostgreSQL Production Database Schema & Initial Seed
 -- Paste this entire script into your Supabase Dashboard -> SQL Editor and click "Run"
 -- ════════════════════════════════════════════════════════════════════════════════
 
@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   pin_hash TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Seed Default Super Admin Account
+INSERT INTO public.profiles (email, full_name, role, outlet, active, pin_hash)
+VALUES ('admin@naboflow.com', 'Super Admin', 'admin', 'Main Branch', true, '1234')
+ON CONFLICT (email) DO NOTHING;
 
 -- 2. Menu Categories & Menu Items
 CREATE TABLE IF NOT EXISTS public.categories (
@@ -38,6 +43,51 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
   spicy_level INT DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Seed Initial Categories
+INSERT INTO public.categories (id, name, icon, sort_order) VALUES
+('starters', 'Starters', 'Flame', 1),
+('mains', 'Mains', 'UtensilsCrossed', 2),
+('biryani', 'Biryani', 'Soup', 3),
+('tandoor', 'Tandoor', 'Flame', 4),
+('curries', 'Curries', 'Soup', 5),
+('breads', 'Breads', 'Sandwich', 6),
+('beverages', 'Beverages', 'CupSoda', 7),
+('desserts', 'Desserts', 'CakeSlice', 8)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon;
+
+-- Seed Initial Menu Items
+INSERT INTO public.menu_items (id, category_id, name, price, is_veg, available, prep_time_mins, description) VALUES
+('m1', 'starters', 'Paneer Tikka', 280, true, true, 15, 'Char-grilled cottage cheese with mint chutney'),
+('m2', 'starters', 'Chicken 65', 240, false, true, 12, 'Spicy fried chicken with curry leaves'),
+('m3', 'starters', 'Veg Spring Roll', 180, true, true, 8, 'Crispy rolls with vegetable filling'),
+('m4', 'starters', 'Fish Amritsari', 320, false, true, 18, 'Crispy batter-fried fish fillets'),
+('m5', 'mains', 'Butter Chicken', 340, false, true, 20, 'Creamy tomato gravy with tender chicken'),
+('m6', 'mains', 'Paneer Butter Masala', 300, true, true, 18, 'Rich makhani gravy with paneer cubes'),
+('m7', 'mains', 'Dal Makhani', 220, true, true, 25, 'Slow-cooked black lentils with cream'),
+('m8', 'mains', 'Mutton Rogan Josh', 420, false, true, 30, 'Kashmiri style tender mutton curry'),
+('m9', 'biryani', 'Chicken Biryani', 280, false, true, 25, 'Dum-cooked basmati with marinated chicken'),
+('m10', 'biryani', 'Veg Biryani', 220, true, true, 22, 'Aromatic basmati rice with mixed vegetables'),
+('m11', 'biryani', 'Mutton Biryani', 380, false, true, 30, 'Rich aromatic mutton dum biryani'),
+('m12', 'biryani', 'Hyderabadi Biryani', 320, false, true, 28, 'Spicy Hyderabadi style chicken biryani'),
+('m13', 'tandoor', 'Tandoori Chicken (Half)', 260, false, true, 22, 'Classic clay-oven roasted chicken'),
+('m14', 'tandoor', 'Seekh Kebab', 240, false, true, 15, 'Minced spiced meat skewers'),
+('m15', 'breads', 'Tandoori Roti', 30, true, true, 5, 'Whole wheat clay oven bread'),
+('m16', 'breads', 'Butter Naan', 45, true, true, 6, 'Soft refined flour bread with butter'),
+('m17', 'breads', 'Garlic Naan', 55, true, true, 6, 'Naan topped with minced garlic & butter'),
+('m18', 'mains', 'Masala Dosa', 140, true, true, 10, 'Crispy rice crepe filled with spiced potato'),
+('m19', 'beverages', 'Sweet Lassi', 80, true, true, 3, 'Chilled churned yogurt drink'),
+('m20', 'beverages', 'Fresh Lime Soda', 60, true, true, 2, 'Refreshing fizzy lime drink'),
+('m21', 'beverages', 'Masala Chai', 40, true, true, 4, 'Spiced Indian milk tea'),
+('m22', 'beverages', 'Cold Coffee', 120, true, true, 4, 'Creamy blended cold coffee'),
+('m23', 'desserts', 'Gulab Jamun (2 pc)', 90, true, true, 2, 'Warm fried dough balls in rose syrup'),
+('m24', 'desserts', 'Rasmalai (2 pc)', 100, true, true, 2, 'Soft cottage cheese patties in saffron milk'),
+('m25', 'desserts', 'Gajar Halwa', 110, true, true, 3, 'Rich carrot pudding with nuts & ghee')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  price = EXCLUDED.price,
+  category_id = EXCLUDED.category_id,
+  description = EXCLUDED.description;
 
 -- 3. Orders & Line Items (Realtime Enabled)
 CREATE TABLE IF NOT EXISTS public.orders (
@@ -108,14 +158,22 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.order_items;
 
--- 7. Enable Row-Level Security (RLS)
+-- 7. Enable Row-Level Security (RLS) & Permissive Public Access
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.raw_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
--- Default Permissive RLS Policies for Anon/Authenticated App Access
-CREATE POLICY "Allow public read access to menu" ON public.menu_items FOR SELECT USING (true);
-CREATE POLICY "Allow authenticated full access to orders" ON public.orders FOR ALL USING (true);
-CREATE POLICY "Allow authenticated full access to profiles" ON public.profiles FOR ALL USING (true);
-CREATE POLICY "Allow authenticated full access to raw materials" ON public.raw_materials FOR ALL USING (true);
+-- Permissive RLS Policies for Anon / Authenticated Access
+CREATE POLICY "Public Read Categories" ON public.categories FOR ALL USING (true);
+CREATE POLICY "Public Read Write Menu" ON public.menu_items FOR ALL USING (true);
+CREATE POLICY "Public Read Write Orders" ON public.orders FOR ALL USING (true);
+CREATE POLICY "Public Read Write Order Items" ON public.order_items FOR ALL USING (true);
+CREATE POLICY "Public Read Write Profiles" ON public.profiles FOR ALL USING (true);
+CREATE POLICY "Public Read Write Raw Materials" ON public.raw_materials FOR ALL USING (true);
+CREATE POLICY "Public Read Write Purchase Orders" ON public.purchase_orders FOR ALL USING (true);
+CREATE POLICY "Public Read Write Attendance" ON public.attendance_records FOR ALL USING (true);

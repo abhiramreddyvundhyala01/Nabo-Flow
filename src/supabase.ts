@@ -102,6 +102,13 @@ export async function dbSaveMenuItem(item: any) {
   return data;
 }
 
+export async function dbDeleteMenuItem(id: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('menu_items').delete().eq('id', id);
+  if (error) console.error('Supabase delete menu item error:', error);
+  return data;
+}
+
 export async function dbFetchCategories() {
   if (!supabase) return null;
   const { data, error } = await supabase.from('categories').select('*').order('sort_order');
