@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 -- Seed Default Super Admin Account
 INSERT INTO public.profiles (email, full_name, role, outlet, active, pin_hash)
-VALUES ('admin@naboflow.com', 'Super Admin', 'admin', 'Main Branch', true, '1234')
-ON CONFLICT (email) DO NOTHING;
+VALUES ('abhiram@naboflow.com', 'abhiram', 'admin', 'Main Branch', true, '1234')
+ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, pin_hash = EXCLUDED.pin_hash;
 
 -- 2. Menu Categories & Menu Items
 CREATE TABLE IF NOT EXISTS public.categories (
