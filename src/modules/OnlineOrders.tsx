@@ -10,6 +10,7 @@ import { onlineOrders } from '../data';
 import { inr } from '../format';
 import { Card, Badge, Button, StatCard, SectionHeader } from '../ui';
 import type { OnlineOrder } from '../types';
+import { deductOrderStock, restoreOrderStock } from '../inventorySync';
 
 const sourceConfig: Record<string, { label: string; icon: typeof Store; color: string; bg: string }> = {
   zomato: { label: 'Zomato', icon: Store, color: 'text-danger-600', bg: 'bg-danger-50' },
@@ -28,8 +29,22 @@ export function OnlineOrders() {
   const activeCount = orders.filter(o => ['accepted', 'preparing', 'ready', 'dispatched'].includes(o.status)).length;
   const totalRevenue = orders.filter(o => o.status === 'delivered').reduce((s, o) => s + o.amount, 0);
 
-  const accept = (id: string) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'accepted' } : o));
-  const reject = (id: string) => setOrders(prev => prev.filter(o => o.id !== id));
+  const accept = (id: string) => {
+    const target = orders.find(o => o.id === id);
+    if (target) {
+      // Deduct stock for default signature menu item corresponding to the online order
+      deductOrderStock([{ name: 'Chicken Biryani', qty: target.items }]);
+    }
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'accepted' } : o));
+  };
+
+  const reject = (id: string) => {
+    const target = orders.find(o => o.id === id);
+    if (target && target.status !== 'new') {
+      restoreOrderStock([{ name: 'Chicken Biryani', qty: target.items }]);
+    }
+    setOrders(prev => prev.filter(o => o.id !== id));
+  };
   const advance = (id: string) => setOrders(prev => prev.map(o => {
     if (o.id !== id) return o;
     const idx = statusFlow.indexOf(o.status);

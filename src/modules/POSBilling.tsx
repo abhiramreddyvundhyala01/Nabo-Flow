@@ -17,6 +17,7 @@ import { inr, uid } from '../format';
 import { Badge } from '../ui';
 import { useMenu } from '../MenuContext';
 import { isSupabaseConfigured, dbFetchOrders, dbSaveOrder, subscribeToOrders } from '../supabase';
+import { deductOrderStock, restoreOrderStock } from '../inventorySync';
 
 // localStorage helpers
 const LS_TABLES    = 'nabo_pos_tables';
@@ -283,6 +284,8 @@ export function POSBilling() {
   };
 
   const handlePaymentDone = () => {
+    const orderLines = lines.map(l => ({ name: l.item.name, menuItemId: l.item.id, qty: l.qty }));
+    deductOrderStock(orderLines);
     pushHistory({
       id: uid('CHK'), orderId, orderType, tableNo: selectedTable ?? undefined,
       lines: lines.map(l => ({ name: l.item.name, qty: l.qty, price: l.item.price, veg: l.item.veg })),
@@ -297,6 +300,8 @@ export function POSBilling() {
 
   const handleKOTDone = () => {
     setShowKOT(false);
+    const orderLines = lines.map(l => ({ name: l.item.name, menuItemId: l.item.id, qty: l.qty }));
+    deductOrderStock(orderLines);
     if (selectedTable) {
       // Update table status to kot-sent
       setTableList(prev => prev.map(t => t.label === selectedTable ? { ...t, status: 'kot-sent', orderAmount: total, guests: totalQty } : t));
@@ -427,6 +432,8 @@ export function POSBilling() {
     setView('table-detail');
 
     if (newKotLines.length > 0) {
+      // Deduct stock for newly added items
+      deductOrderStock(newKotLines.map(l => ({ name: l.item.name, menuItemId: l.item.id, qty: l.qty })));
       // Show KOT preview for newly added items only
       setKotNewLines(newKotLines);
       setShowKOT(true);
@@ -467,6 +474,18 @@ export function POSBilling() {
     setShowPayment(false);
     showToast('Bill settled — Table cleared');
     setTimeout(() => setView('floor'), 1000);
+  };
+
+  const handleCancelTableOrder = () => {
+    if (currentTableOrder) {
+      restoreOrderStock(currentTableOrder.lines.map(l => ({ name: l.name, qty: l.qty })));
+      setTableOrderMap(prev => { const next = { ...prev }; delete next[currentTableId]; return next; });
+      setTableList(prev => prev.map(t =>
+        t.id === currentTableId ? { ...t, status: 'vacant', orderAmount: undefined, guests: undefined } : t
+      ));
+      showToast('Order cancelled — Stock restored to inventory');
+      setView('floor');
+    }
   };
 
   const handleSendKOT = () => {
@@ -670,8 +689,8 @@ export function POSBilling() {
               </div>
             </div>
 
-              {/* Actions — Send KOT + Print Bill + Add Items */}
-            <div className="grid grid-cols-3 gap-2">
+              {/* Actions — Send KOT + Print Bill + Add Items + Cancel Order */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 onClick={handleSendKOT}
                 className={`h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-all
@@ -692,6 +711,12 @@ export function POSBilling() {
                 className="h-12 rounded-xl border border-ink-200 text-sm font-semibold text-ink-600 hover:bg-ink-50 transition-colors flex items-center justify-center gap-1.5"
               >
                 <Plus className="h-4 w-4" /> Add Items
+              </button>
+              <button
+                onClick={handleCancelTableOrder}
+                className="h-12 rounded-xl border border-danger-200 bg-danger-50 hover:bg-danger-100 text-danger-700 font-semibold text-sm flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" /> Cancel Order
               </button>
             </div>
           </div>

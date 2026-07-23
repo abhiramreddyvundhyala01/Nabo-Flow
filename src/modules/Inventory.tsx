@@ -100,6 +100,15 @@ export function Inventory() {
   const [boqList, setBOQList] = useState<BOQPlan[]>(() => loadBOQPlans());
   const [toast, setToast] = useState<string | null>(null);
 
+  // Listen to real-time inventory stock movements triggered by orders
+  useEffect(() => {
+    const handleInventoryUpdate = () => {
+      setMaterials(ssLoad());
+    };
+    window.addEventListener('nabo_inventory_updated', handleInventoryUpdate);
+    return () => window.removeEventListener('nabo_inventory_updated', handleInventoryUpdate);
+  }, []);
+
   // Fetch live materials from Supabase if configured
   useEffect(() => {
     if (isSupabaseConfigured) {
